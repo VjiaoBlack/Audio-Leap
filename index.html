@@ -1,0 +1,213 @@
+<!doctype html>
+<head>
+    <script src="leap-0.6.4.min.js"></script>
+    <style type="text/css">
+        div {
+            height: 50px;
+            background-color: blue;
+            width: 5px;
+
+        }
+
+
+    </style>
+</head>
+
+<body>
+
+    <a class="mute"> mute </a>
+
+    <div id="1"></div>
+    <div id="2"></div>
+    <div id="3"></div>
+
+    <canvas class="canvas"></canvas>
+<script>
+var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+var oscis = new Array();
+var gains = new Array();
+var times = new Array();
+
+var freqs = [ 0, 2, 3, 5, 7, 8,10,
+             12,14,15,17,19,20,22,
+             24,26,27,29,31,32,34, 36];
+
+var gain_mult =[ 1.2, 1.2, 1.2, 1.1, 1.1, 1.1, 1.1,
+              1.0, 1.0, 1.0, 0.9, 0.9, 0.9, 0.9,
+              0.8, 0.8, 0.8, 0.8, 0.7, 0.7, 0.7, 0.6];
+
+
+
+
+for (var i = 0; i <= 21; i++) {
+
+    gains[i] = audioCtx.createGain();
+    oscis[i] = audioCtx.createOscillator();
+
+
+    times[i] = 0;
+
+
+
+
+    oscis[i].connect(gains[i]);
+    gains[i].connect(audioCtx.destination);
+
+    oscis[i].type = 'sine'; // sine wave — other values are 'square', 'sawtooth', 'triangle' and 'custom'
+    oscis[i].frequency.value = 220 * Math.pow(2, freqs[i] / 12); // value in hertz
+    oscis[i].start();
+
+    gains[i].gain.value = 0;
+
+}
+
+key = new Array();
+
+window.onkeyup = function(e) {
+    var keyval = e.keyCode ? e.keyCode : e.which;
+    key[String.fromCharCode(keyval)] = false;
+}
+
+window.onkeydown = function(e) {
+    var keyval = e.keyCode ? e.keyCode : e.which;
+    key[String.fromCharCode(keyval)] = true;
+}
+
+// Set up the controller:
+window.controller = Leap.loop({background: true}, function(frame){
+    if (frame.hands.length > 0) {
+        window.hand = frame.hands[0];
+
+    } else {
+        window.hand = null;
+    }
+
+});
+
+
+
+
+var old_vel = 0;
+var cur_vel;
+
+var old_pos = 0;
+var cur_pos;
+
+var max_vel = 0;
+
+
+var notes = "ZXCVBNMASDFGHJQWERTYUI";
+
+
+var keyboard = setInterval(function() {
+    if (window.hand) {
+        var cur_pos = window.hand.palmPosition[1];
+        cur_vel = cur_pos - old_pos;
+
+
+        document.getElementById("1").style.width = Math.abs(window.hand.palmPosition[0]) / 2 + "px";
+
+        document.getElementById("2").style.width = Math.abs(window.hand.palmPosition[1]) / 2 + "px";
+
+        document.getElementById("3").style.width = Math.abs(window.hand.palmPosition[2]) / 2 + "px";
+
+        if (window.hand.palmPosition[0] < 0) {
+            document.getElementById("1").style.backgroundColor = "red";
+        } else {
+            document.getElementById("1").style.backgroundColor = "blue";
+        }
+
+        if (window.hand.palmPosition[1] < 0) {
+            document.getElementById("2").style.backgroundColor = "red";
+        } else {
+            document.getElementById("2").style.backgroundColor = "blue";
+        }
+
+        if (window.hand.palmPosition[2] < 0) {
+            document.getElementById("3").style.backgroundColor = "red";
+        } else {
+            document.getElementById("3").style.backgroundColor = "blue";
+        }
+
+    } else {
+        cur_vel = old_vel;
+        cur_pos = old_pos;
+    }
+
+    if (cur_vel < max_vel) {
+        max_vel = cur_vel;
+    }
+
+
+    // consider also playing at some point after max_vel...
+    // if (old_vel < 10 && cur_vel > 10 && max_vel < -2) {
+    if (max_vel < 0 && cur_pos < 100){
+
+        console.log(cur_pos);
+
+        max_vel = 0;
+
+        for(var i = 0; i < notes.length; i++) {
+            if (key[notes.charAt(i)] || i == 0) {
+                // this key is pressed;
+                times[i] = 2;
+            }
+            if (times[i] > 0)
+                times[i]-=.05;
+            else
+                times[i] = 0;
+        }
+    }
+
+    for(var i = 0; i < notes.length; i++) {
+
+        if (times[i] > 0)
+            times[i]-=.05;
+        else
+            times[i] = 0;
+    }
+
+    for (var i = 0; i <= 21; i++) {
+        gains[i].gain.value = gain_mult[i] * (Math.pow(2, -2 * (2 - times[i]))- 0.0625);
+    }
+
+    old_pos = cur_pos;
+    old_vel = cur_vel;
+}, 1000/60);
+
+
+
+
+// mute
+var mute = document.querySelector('.mute');
+
+mute.onclick = function() {
+  if(mute.id == "") {
+    for (var i = 0; i <= 21; i++) {
+        gains[i].disconnect(audioCtx.destination);
+    }
+    mute.id = "activated";
+    mute.innerHTML = "Unmute";
+  } else {
+    for (var i = 0; i <= 21; i++) {
+        gains[i].connect(audioCtx.destination);
+    }
+    mute.id = "";
+    mute.innerHTML = "Mute";
+  }
+}
+
+
+
+
+
+
+
+
+
+</script>
+
+
+</body>
+</html>
